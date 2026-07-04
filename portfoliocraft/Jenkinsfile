@@ -1,0 +1,59 @@
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = "portfoliocraft"
+        IMAGE_TAG  = "latest"
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                echo 'Checking out source code...'
+                checkout scm
+            }
+        }
+
+        stage('Build') {
+            steps {
+                echo 'Verifying site assets...'
+                bat 'if not exist src\\index.html (echo MISSING index.html & exit /b 1)'
+                echo 'Build stage complete.'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                echo 'Running config checks...'
+                bat 'if not exist Dockerfile (echo MISSING Dockerfile & exit /b 1)'
+                bat 'if not exist nginx.conf (echo MISSING nginx.conf & exit /b 1)'
+                echo 'Test stage complete.'
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                echo 'Building Docker image...'
+                bat "docker build -t %IMAGE_NAME%:%IMAGE_TAG% ."
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                echo 'Deploying via Docker Compose...'
+                bat 'docker compose down'
+                bat 'docker compose up --build -d'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Pipeline finished successfully. PortfolioCraft is live on http://localhost:8080'
+        }
+        failure {
+            echo 'Pipeline failed. Check the stage logs above.'
+        }
+    }
+}

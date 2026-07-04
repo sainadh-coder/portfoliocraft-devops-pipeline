@@ -1,0 +1,65 @@
+version: "3.8"
+
+services:
+  portfolio:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: portfoliocraft_site
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    networks:
+      - portfoliocraft
+
+  graphite:
+    image: graphiteapp/graphite-statsd
+    container_name: portfoliocraft_graphite
+    ports:
+      - "8090:80"     # Graphite web UI
+      - "2003:2003"   # Carbon plaintext metrics receiver
+    volumes:
+      - ./monitoring/graphite/storage-schemas.conf:/opt/graphite/conf/storage-schemas.conf
+      - graphite_storage:/opt/graphite/storage
+    restart: unless-stopped
+    networks:
+      - portfoliocraft
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: portfoliocraft_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - grafana_storage:/var/lib/grafana
+    depends_on:
+      - graphite
+    restart: unless-stopped
+    networks:
+      - portfoliocraft
+
+  nagios:
+    image: jasonrivers/nagios:latest
+    container_name: portfoliocraft_nagios
+    ports:
+      - "8081:80"
+    volumes:
+      - ./monitoring/nagios/portfolio_website.cfg:/opt/nagios/etc/objects/portfolio_website.cfg
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    networks:
+      - portfoliocraft
+
+networks:
+  portfoliocraft:
+    driver: bridge
+
+volumes:
+  graphite_storage:
+  grafana_storage:
